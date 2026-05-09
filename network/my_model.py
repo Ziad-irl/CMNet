@@ -195,16 +195,18 @@ class Model_4(nn.Module):      # 偶数长宽融合+loss
 class Model_5(nn.Module):      # 偶数长宽融合+loss
     def __init__(self,num_class=7,device='cpu'):
         super(Model_5,self).__init__()
-        self.resnet=models.resnet18()
+        self.resnet=models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
         
-        checkpoint=torch.load('models/resnet18_msceleb.pth',map_location=device)
-        self.resnet.load_state_dict(checkpoint['state_dict'],strict=True)
         self.features1=nn.Sequential(*list(self.resnet.children())[:-3])
         self.features2=nn.Sequential(*list(self.resnet.children())[:-3])
         self.features3=nn.Sequential(*list(self.resnet.children())[:-3])
         self.features4=nn.Sequential(*list(self.resnet.children())[-3:-2])
-        self.attention=myCBAM(512)
-        self.fc=nn.Linear(512,num_class)
+        
+        # Adaptive fusion 1x1 conv to merge x1 and x4
+        self.fusion = nn.Conv2d(1024 * 2, 1024, kernel_size=1)
+        
+        self.attention=myCBAM(2048)
+        self.fc=nn.Linear(2048,num_class)
         self.avgpool=nn.AdaptiveAvgPool2d((1,1))
         self.relu=nn.ReLU()
     def forward(self,x):
@@ -219,20 +221,22 @@ class Model_5(nn.Module):      # 偶数长宽融合+loss
 
         x4=torch.cat([x2,x3],dim=3)
 
-        x2=self.avgpool(x2)
-        x2=x2.view(x.size(0),-1)
-        x2=torch.unsqueeze(x2,1)
-        x3=self.avgpool(x3)
-        x3=x3.view(x.size(0),-1)
-        x3=torch.unsqueeze(x3,1)
+        x2_pool=self.avgpool(x2)
+        x2_pool=x2_pool.view(x.size(0),-1)
+        x2_pool=torch.unsqueeze(x2_pool,1)
+        x3_pool=self.avgpool(x3)
+        x3_pool=x3_pool.view(x.size(0),-1)
+        x3_pool=torch.unsqueeze(x3_pool,1)
 
-        heads=torch.cat([x2,x3],dim=1)
+        heads=torch.cat([x2_pool,x3_pool],dim=1)
         heads = F.log_softmax(heads,dim=1)
 
-        x5=x1+x4
+        # Adaptive fusion instead of simple addition
+        x5 = torch.cat([x1, x4], dim=1)
+        x5 = self.fusion(x5)
 
         x5=self.features4(x5)
-        print(f'x5:{x5.shape}')
+        
         x5=self.attention(x5)
 
         x5=self.avgpool(x5)

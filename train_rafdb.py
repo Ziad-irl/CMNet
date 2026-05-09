@@ -55,10 +55,10 @@ def main():
     print('Training time: ' + now.strftime("%m-%d %H:%M"))
     model=Model_5(num_class=7,device=device)
     model=model.to(device)
-    criterion_cls = nn.CrossEntropyLoss().to(device)
+    criterion_cls = nn.CrossEntropyLoss(label_smoothing=0.1).to(device)
     criterion_pt = PartitionLoss()      # 最大化注意力方差
-    optimizer=torch.optim.SGD(model.parameters(),lr,momentum= momentum,weight_decay= weight_decay)
-    scheduler=torch.optim.lr_scheduler.StepLR(optimizer,step_size= ls,gamma=0.1)
+    optimizer=torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler=torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
     recorder = RecorderMeter( epochs)
     cudnn.benchmark=True        #加速网络
 
@@ -66,11 +66,7 @@ def main():
         traindir,
         transforms.Compose([
             transforms.Resize((224,224)),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomApply([
-                transforms.RandomRotation(20),
-                transforms.RandomCrop(224,padding=32)
-            ],p=0.2),
+            transforms.RandAugment(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485,0.456,0.406],
                 std=[0.229,0.224,0.225]),

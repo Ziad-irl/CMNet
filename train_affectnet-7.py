@@ -56,20 +56,16 @@ def main():
     model = Model_5(num_class=7,device=device)
     model=model.to(device)
     params = list(model.parameters())
-    criterion_cls = nn.CrossEntropyLoss().to(device)
+    criterion_cls = nn.CrossEntropyLoss(label_smoothing=0.1).to(device)
     criterion_pt = PartitionLoss()      # 最大化注意力方差
-    optimizer = torch.optim.Adam(params,lr,weight_decay = 0)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = 0.6)
+    optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
     recorder = RecorderMeter( epochs)
     cudnn.benchmark=True        #加速网络
 
     data_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomApply([
-                transforms.RandomAffine(20, scale=(0.8, 1), translate=(0.2, 0.2)),
-            ], p=0.7),
-
+        transforms.RandAugment(),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),
