@@ -51,6 +51,12 @@ cells = [
             "# Download models\n",
             "!gdown --folder https://drive.google.com/drive/folders/1kPUbCKoDKesxbpubPTxedD3DWsGGJ1qj -O models_tmp\n",
             "\n",
+            "# Extract any compressed files in data_tmp\n",
+            "!find data_tmp/ -name \"*.zip\" -exec unzip -q -o {} -d data_tmp/ \\;\n",
+            "!find data_tmp/ -name \"*.tar.gz\" -exec tar -xzf {} -C data_tmp/ \\;\n",
+            "!find data_tmp/ -name \"*.tar\" -exec tar -xf {} -C data_tmp/ \\;\n",
+            "!find data_tmp/ -name \"*.rar\" -exec unrar x -y -o+ {} data_tmp/ \\;\n",
+            "\n",
             "# Move contents to appropriate folders\n",
             "!mv data_tmp/* data/ || true\n",
             "!mv models_tmp/* models/ || true"
